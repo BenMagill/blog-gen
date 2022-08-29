@@ -46,7 +46,10 @@ fn main() {
         md_to_html(&md, &filename, &template)
     }
 
-    // TODO copy style css to build
+    match fs::copy(format!("{}/.config/style.css", BLOG_ROOT), format!("{}/.build/style.css", BLOG_ROOT)) {
+        Err(_) => error("Failed to add stlye.css to build"),
+        _ => (),
+    };
 }
 fn generate_post_filename(post: &ParsedPage) -> String {
     return format!("{}-{}.html", post.date, post.title.replace(" ", "-"));
@@ -132,17 +135,15 @@ fn format_page_row(page: &ParsedPage) -> String {
         },
     };
     let date_formatted = date_parsed.format("%B %d %Y");
-    // TODO the title needs to be a link to the correct post
     let link = generate_post_filename(page);
+
     return format!("{date_formatted} -- [{title}]({link})\n\n");
 }
 
 fn md_to_html(md: &str, file_name: &str, template: &str) {
-   let html_content = markdown_to_html(md, &ComrakOptions::default()); 
+    let html_content = markdown_to_html(md, &ComrakOptions::default()); 
 
-   println!("{}", html_content);
-
-    //    TODO combine html with template
+    println!("{}", html_content);
 
     let html = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
 
@@ -151,10 +152,3 @@ fn md_to_html(md: &str, file_name: &str, template: &str) {
         _ => (),
     }
 }
-
-// get list of post files
-// get their date and title
-// ensure they are in order of date
-// 
-// generate markdown contents list for these
-// convert contents page and pages to html
