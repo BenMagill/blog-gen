@@ -141,8 +141,18 @@ fn format_page_row(page: &ParsedPage) -> String {
 }
 
 fn md_to_html(md: &str, file_name: &str, template: &str) {
-    let html_content = markdown_to_html(md, &ComrakOptions::default()); 
+    let mut options = ComrakOptions::default();
+    options.extension.autolink = true;
+    options.extension.description_lists = true;
+    options.extension.footnotes = true;
+    options.extension.strikethrough = true;
+    options.extension.superscript = true;
+    options.extension.table = true;
+    options.extension.tagfilter = true;
+    options.extension.tasklist = true;
+    options.render.hardbreaks = true;
 
+    let html_content = markdown_to_html(md, &options); 
     println!("{}", html_content);
 
     let html = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
