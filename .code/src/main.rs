@@ -31,7 +31,10 @@ fn main() {
     md_to_html(&contents, "index.html", &template);
     for post in posts {
         let filename = generate_post_filename(&post);
-        let md = fs::read_to_string(format!("{}/{}", BLOG_ROOT, post.filename)).unwrap();
+        let md = match fs::read_to_string(format!("{}/{}", BLOG_ROOT, post.filename)) {
+            Ok(md) => md,
+            Err(_) => error(&format!("Failed to read {}", post.filename))
+        };
         md_to_html(&md, &filename, &template)
     }
 
@@ -75,7 +78,10 @@ fn get_posts(dir: &str) -> Vec<ParsedPage> {
     for path in paths {
         if let Ok(path) = path {
             if path.file_type().unwrap().is_file() {
-                let post_option = parse_filename(&path.file_name().to_str().unwrap());
+                let post_option = parse_filename(match &path.file_name().to_str() {
+                    Some(filename) => filename,
+                    None => error("Could not read post filename"),
+                });
                 if let Some(post) = post_option {
                     parsed_posts.push(post);
                 }
