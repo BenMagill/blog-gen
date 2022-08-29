@@ -19,7 +19,7 @@ fn error(message: &str) -> ! {
 }
 
 fn main() {
-    clear_dir(&format!("{}/.build", BLOG_ROOT));
+    clear_dir(&format!("{}/build", BLOG_ROOT));
 
     let mut posts = get_posts(BLOG_ROOT);
     
@@ -38,7 +38,7 @@ fn main() {
         md_to_html(&md, &filename, &template)
     }
 
-    match fs::copy(format!("{}/.config/style.css", BLOG_ROOT), format!("{}/.build/style.css", BLOG_ROOT)) {
+    match fs::copy(format!("{}/.config/style.css", BLOG_ROOT), format!("{}/build/style.css", BLOG_ROOT)) {
         Err(_) => error("Failed to add stlye.css to build"),
         _ => (),
     };
@@ -168,7 +168,7 @@ fn md_to_html(md: &str, filename: &str, template: &str) {
     let html_content = markdown_to_html(md, &options); 
     let html_file = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
 
-    match fs::write(format!("{}/.build/{}", BLOG_ROOT, filename), html_file) {
+    match fs::write(format!("{}/build/{}", BLOG_ROOT, filename), html_file) {
         Err(_) => error("Failed to store html output"),
         Ok(_) => (),
     }
