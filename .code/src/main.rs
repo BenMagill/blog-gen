@@ -1,4 +1,4 @@
-use std::{fs, fmt::{Result, Debug}, io::Stdin};
+use std::{fs, fmt::{Debug}};
 use chrono::{NaiveDate};
 use comrak::{markdown_to_html, ComrakOptions};
 
@@ -19,30 +19,19 @@ fn error(message: &str) -> ! {
 }
 
 fn main() {
-    // wipe old build folder
-    match fs::remove_dir_all(format!("{}/.build", BLOG_ROOT)) {
-        Err(_) => println!("WARNING: Failed to remove .build dir, continuing"),
-        Ok(_) => (),
-    };
+    clear_dir(&format!("{}/.build", BLOG_ROOT));
 
-    fs::create_dir(format!("{}/.build", BLOG_ROOT));
-
-    let mut posts = get_post_files(BLOG_ROOT);
+    let mut posts = get_posts(BLOG_ROOT);
     
     posts.sort_by(|a, b| b.filename.cmp(&a.filename));
 
-    let contents = generate_contents_page(&posts);
-
-    println!("{}", contents);
-
+    let contents = generate_contents_page_md(&posts);
     let template = get_html_template();
 
-    // create contents page
     md_to_html(&contents, "index.html", &template);
-
     for post in posts {
         let filename = generate_post_filename(&post);
-        let md = fs::read_to_string(BLOG_ROOT.to_owned() + "/" + &post.filename).unwrap();
+        let md = fs::read_to_string(format!("{}/{}", BLOG_ROOT, post.filename)).unwrap();
         md_to_html(&md, &filename, &template)
     }
 
@@ -51,25 +40,41 @@ fn main() {
         _ => (),
     };
 }
+
+fn clear_dir(dir: &str) {
+    match fs::remove_dir_all(dir) {
+        Err(_) => error(&format!("Failed to remove directory '{}'", dir)),
+        Ok(_) => (),
+    };
+
+    match fs::create_dir(dir) {
+        Err(_) => error(&format!("Failed to re-add directory '{}'", dir)),
+        Ok(_) => ()
+    };
+}
+
 fn generate_post_filename(post: &ParsedPage) -> String {
     return format!("{}-{}.html", post.date, post.title.replace(" ", "-"));
 }
 
 fn get_html_template() -> String {
-    return match fs::read_to_string(BLOG_ROOT.to_owned() + "/.config/template.html") {
+    return match fs::read_to_string(format!("{}/.config/template.html", BLOG_ROOT)) {
         Ok(html) => html,
-        Err(_) => error("Missing html template"),
+        Err(_) => error("Missing html template file"),
     }
 }
 
-fn get_post_files(dir: &str) -> Vec<ParsedPage> {
-    let paths = fs::read_dir(dir).unwrap();
+fn get_posts(dir: &str) -> Vec<ParsedPage> {
+    let paths = match fs::read_dir(dir) {
+        Ok(paths) => paths,
+        Err(_) => error("Failed to read posts"),
+    };
 
     let mut parsed_posts: Vec<ParsedPage> = Vec::new();
 
     for path in paths {
         if let Ok(path) = path {
-            if (path.file_type().unwrap().is_file()) {
+            if path.file_type().unwrap().is_file() {
                 let post_option = parse_filename(&path.file_name().to_str().unwrap());
                 if let Some(post) = post_option {
                     parsed_posts.push(post);
@@ -81,6 +86,9 @@ fn get_post_files(dir: &str) -> Vec<ParsedPage> {
     return parsed_posts;
 }
 
+/**
+ * Extract the date and title from a blogs filename
+ */
 fn parse_filename(filename: &str) -> Option<ParsedPage> {
     // expect in format `YYYYMMDD name`
     let split = match filename.split_once(" ") {
@@ -100,21 +108,25 @@ fn parse_filename(filename: &str) -> Option<ParsedPage> {
     })
 }
 
-fn generate_contents_page(pages: &Vec<ParsedPage>) -> String {
+/**
+ * Create the contents page markdown
+ */
+fn generate_contents_page_md(pages: &Vec<ParsedPage>) -> String {
     let mut contents = String::new();
 
     for page in pages {
-        let text = format_page_row(page);
-        contents.push_str(&text);
+        let date = format_blog_date(&page.date);
+        let link = generate_post_filename(page);
+        contents.push_str(&format!("{} -- [{}]({})\n\n", date, page.title, link));
     }
 
     // TODO insert header and footer
-    let header = match fs::read_to_string(BLOG_ROOT.to_owned() + "/.config/header.md") {
+    let header = match fs::read_to_string(format!("{}/.config/header.md", BLOG_ROOT)) {
         Ok(header) => header,
         Err(_) => String::new(),
     };
     
-    let footer = match fs::read_to_string(BLOG_ROOT.to_owned() + "/.config/footer.md") {
+    let footer = match fs::read_to_string(format!("{}/.config/footer.md", BLOG_ROOT)) {
         Ok(footer) => footer,
         Err(_) => String::new(),
     };
@@ -124,9 +136,7 @@ fn generate_contents_page(pages: &Vec<ParsedPage>) -> String {
     return full_page;
 }
 
-fn format_page_row(page: &ParsedPage) -> String {
-    let date = &page.date;
-    let title = &page.title;
+fn format_blog_date(date: &str) -> String {
     let date_parsed = match NaiveDate::parse_from_str(&date, "%Y%m%d") {
         Ok(date_parsed) => date_parsed,
         Err(e)  => {
@@ -135,12 +145,10 @@ fn format_page_row(page: &ParsedPage) -> String {
         },
     };
     let date_formatted = date_parsed.format("%B %d %Y");
-    let link = generate_post_filename(page);
-
-    return format!("{date_formatted} -- [{title}]({link})\n\n");
+    return date_formatted.to_string();
 }
 
-fn md_to_html(md: &str, file_name: &str, template: &str) {
+fn md_to_html(md: &str, filename: &str, template: &str) {
     let mut options = ComrakOptions::default();
     options.extension.autolink = true;
     options.extension.description_lists = true;
@@ -153,12 +161,10 @@ fn md_to_html(md: &str, file_name: &str, template: &str) {
     options.render.hardbreaks = true;
 
     let html_content = markdown_to_html(md, &options); 
-    println!("{}", html_content);
+    let html_file = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
 
-    let html = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
-
-    match fs::write(BLOG_ROOT.to_owned() + "/.build/" + file_name, html) {
+    match fs::write(format!("{}/.build/{}", BLOG_ROOT, filename), html_file) {
         Err(_) => error("Failed to store html output"),
-        _ => (),
+        Ok(_) => (),
     }
 }
