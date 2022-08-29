@@ -120,7 +120,6 @@ fn generate_contents_page_md(pages: &Vec<ParsedPage>) -> String {
         contents.push_str(&format!("{} -- [{}]({})\n\n", date, page.title, link));
     }
 
-    // TODO insert header and footer
     let header = match fs::read_to_string(format!("{}/.config/header.md", BLOG_ROOT)) {
         Ok(header) => header,
         Err(_) => String::new(),
