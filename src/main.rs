@@ -1,8 +1,7 @@
-use std::{fs, fmt::{Debug}};
+use std::{fs, fmt::Debug, path::Path};
 use chrono::{NaiveDate};
 use comrak::{markdown_to_html, ComrakOptions};
 
-// TODO this dir will be different when run as a binary
 const BLOG_ROOT: &str = ".";
 const TEMPLATE_CONTENT_LOCATION: &str = "INSERT_CONTENT_HERE";
 
@@ -45,10 +44,13 @@ fn main() {
 }
 
 fn clear_dir(dir: &str) {
-    match fs::remove_dir_all(dir) {
-        Err(_) => error(&format!("Failed to remove directory '{}'", dir)),
-        Ok(_) => (),
-    };
+    let path = Path::new(dir);
+    if path.exists() {
+        match fs::remove_dir_all(dir) {
+            Err(_) => error(&format!("Failed to remove directory '{}'", dir)),
+            Ok(_) => (),
+        };
+    }
 
     match fs::create_dir(dir) {
         Err(_) => error(&format!("Failed to re-add directory '{}'", dir)),
