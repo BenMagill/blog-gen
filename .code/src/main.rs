@@ -3,7 +3,7 @@ use chrono::{NaiveDate};
 use comrak::{markdown_to_html, ComrakOptions};
 
 // TODO this dir will be different when run as a binary
-const BLOG_ROOT: &str = "..";
+const BLOG_ROOT: &str = ".";
 const TEMPLATE_CONTENT_LOCATION: &str = "INSERT_CONTENT_HERE";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
