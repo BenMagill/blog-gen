@@ -126,19 +126,7 @@ fn generate_contents_page_md(pages: &Vec<ParsedPage>) -> String {
         contents.push_str(&format!("{} -- [{}]({})\n\n", date, page.title, link));
     }
 
-    let header = match fs::read_to_string(format!("{}/.config/header.md", BLOG_ROOT)) {
-        Ok(header) => header,
-        Err(_) => String::new(),
-    };
-    
-    let footer = match fs::read_to_string(format!("{}/.config/footer.md", BLOG_ROOT)) {
-        Ok(footer) => footer,
-        Err(_) => String::new(),
-    };
-
-    let full_page = format!("{header}\n\n{contents}{footer}");
-
-    return full_page;
+    return contents;
 }
 
 fn format_blog_date(date: &str) -> String {
@@ -165,7 +153,19 @@ fn md_to_html(md: &str, filename: &str, template: &str) {
     options.extension.tasklist = true;
     options.render.hardbreaks = true;
 
-    let html_content = markdown_to_html(md, &options); 
+    let header = match fs::read_to_string(format!("{}/.config/header.md", BLOG_ROOT)) {
+        Ok(header) => header,
+        Err(_) => String::new(),
+    };
+    
+    let footer = match fs::read_to_string(format!("{}/.config/footer.md", BLOG_ROOT)) {
+        Ok(footer) => footer,
+        Err(_) => String::new(),
+    };
+
+    let full_page = format!("{header}\n\n{md}\n\n{footer}");
+
+    let html_content = markdown_to_html(&full_page, &options); 
     let html_file = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
 
     match fs::write(format!("{}/build/{}", BLOG_ROOT, filename), html_file) {
