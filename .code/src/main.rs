@@ -1,8 +1,10 @@
 use std::{fs, fmt::{Result, Debug}, io::Stdin};
 use chrono::{NaiveDate};
+use comrak::{markdown_to_html, ComrakOptions};
 
 // TODO this dir will be different when run as a binary
 const BLOG_ROOT: &str = "..";
+const TEMPLATE_CONTENT_LOCATION: &str = "INSERT_CONTENT_HERE";
 
 #[derive(Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct ParsedPage {
@@ -17,19 +19,44 @@ fn error(message: &str) -> ! {
 }
 
 fn main() {
-    // get blog posts
+    // wipe old build folder
+    match fs::remove_dir_all(format!("{}/.build", BLOG_ROOT)) {
+        Err(_) => println!("WARNING: Failed to remove .build dir, continuing"),
+        Ok(_) => (),
+    };
+
+    fs::create_dir(format!("{}/.build", BLOG_ROOT));
+
     let mut posts = get_post_files(BLOG_ROOT);
     
     posts.sort_by(|a, b| b.filename.cmp(&a.filename));
 
-    println!("{:?}", posts);
-
-    let contents = generate_contents_page(posts);
+    let contents = generate_contents_page(&posts);
 
     println!("{}", contents);
 
-    // TODO convert contents page and others into html
+    let template = get_html_template();
 
+    // create contents page
+    md_to_html(&contents, "index.html", &template);
+
+    for post in posts {
+        let filename = generate_post_filename(&post);
+        let md = fs::read_to_string(BLOG_ROOT.to_owned() + "/" + &post.filename).unwrap();
+        md_to_html(&md, &filename, &template)
+    }
+
+    // TODO copy style css to build
+}
+fn generate_post_filename(post: &ParsedPage) -> String {
+    return format!("{}-{}.html", post.date, post.title.replace(" ", "-"));
+}
+
+fn get_html_template() -> String {
+    return match fs::read_to_string(BLOG_ROOT.to_owned() + "/.config/template.html") {
+        Ok(html) => html,
+        Err(_) => error("Missing html template"),
+    }
 }
 
 fn get_post_files(dir: &str) -> Vec<ParsedPage> {
@@ -70,7 +97,7 @@ fn parse_filename(filename: &str) -> Option<ParsedPage> {
     })
 }
 
-fn generate_contents_page(pages: Vec<ParsedPage>) -> String {
+fn generate_contents_page(pages: &Vec<ParsedPage>) -> String {
     let mut contents = String::new();
 
     for page in pages {
@@ -94,9 +121,9 @@ fn generate_contents_page(pages: Vec<ParsedPage>) -> String {
     return full_page;
 }
 
-fn format_page_row(page: ParsedPage) -> String {
-    let date = page.date;
-    let title = page.title;
+fn format_page_row(page: &ParsedPage) -> String {
+    let date = &page.date;
+    let title = &page.title;
     let date_parsed = match NaiveDate::parse_from_str(&date, "%Y%m%d") {
         Ok(date_parsed) => date_parsed,
         Err(e)  => {
@@ -106,7 +133,23 @@ fn format_page_row(page: ParsedPage) -> String {
     };
     let date_formatted = date_parsed.format("%B %d %Y");
     // TODO the title needs to be a link to the correct post
-    return format!("{date_formatted} -- [{title}]()\n\n");
+    let link = generate_post_filename(page);
+    return format!("{date_formatted} -- [{title}]({link})\n\n");
+}
+
+fn md_to_html(md: &str, file_name: &str, template: &str) {
+   let html_content = markdown_to_html(md, &ComrakOptions::default()); 
+
+   println!("{}", html_content);
+
+    //    TODO combine html with template
+
+    let html = template.replace(TEMPLATE_CONTENT_LOCATION, &html_content);
+
+    match fs::write(BLOG_ROOT.to_owned() + "/.build/" + file_name, html) {
+        Err(_) => error("Failed to store html output"),
+        _ => (),
+    }
 }
 
 // get list of post files
